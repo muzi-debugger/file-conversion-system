@@ -1,0 +1,47 @@
+{
+  "annotations": {
+    "changelogDate": "20250107124514"
+  },
+  "applications": ["FileConverter"],
+  "fields": [
+    {
+      "fieldName": "id",
+      "fieldType": "Long",
+      "options": {
+        "notNull": true,
+        "unique": true
+      }
+    },
+    {
+      "fieldName": "fileName",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "fileType",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "lastModified",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "converted",
+      "fieldType": "Boolean"
+    },
+    {
+      "fieldName": "s3Url",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "category",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "File",
+  "relationships": [],
+  "searchEngine": "no"
+}

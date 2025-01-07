@@ -1,0 +1,21 @@
+{
+  "generator-jhipster": {
+    "applicationType": "monolith",
+    "authenticationType": "jwt",
+    "baseName": "FileConverter",
+    "buildTool": "maven",
+    "cacheProvider": "ehcache",
+    "clientFramework": "react",
+    "devDatabaseType": "h2Disk",
+    "enableHibernateCache": true,
+    "entities": ["File"],
+    "jhipsterVersion": "8.8.0",
+    "jwtSecretKey": "NDk1OTg4NDllYjM2NGY2NjZmMTVkZmEyYjBmZGRjM2RiZWM2NzE0MGYyYzk3ZTA1NGRjY2YzZThjOTUwNmI2MDRmNzMwNjVkZDY4ZTlkNmI4ZDZiMWY5NmM2OGNjZGVkYjgyZGQwZDAyNTRlMWUzZGIyYzM3OGQxZWE3YjU0YjI=",
+    "languages": ["en"],
+    "lastLiquibaseTimestamp": 1736253914000,
+    "nativeLanguage": "en",
+    "packageName": "com.converter.file",
+    "prodDatabaseType": "mysql",
+    "testFrameworks": ["cypress"]
+  }
+}

@@ -1,0 +1,29 @@
+application {
+config {
+baseName FileConverter
+applicationType monolith
+packageName com.converter.file
+buildTool maven
+authenticationType jwt
+prodDatabaseType mysql
+devDatabaseType h2Disk
+clientFramework react
+cacheProvider ehcache
+enableHibernateCache true
+nativeLanguage en
+testFrameworks [cypress]
+    }
+entities *
+}
+entity File {
+@NotNull
+@Unique
+id Long
+fileName String required
+fileType String required
+lastModified LocalDate required
+converted Boolean
+s3Url String
+category String required
+
+}
