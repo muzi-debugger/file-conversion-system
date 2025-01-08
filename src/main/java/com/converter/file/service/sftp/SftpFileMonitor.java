@@ -1,11 +1,15 @@
 package com.converter.file.service.sftp;
 
 import com.converter.file.domain.SftpProperties;
+import com.converter.file.service.DocxToPdfService;
 import com.jcraft.jsch.*;
-import jakarta.annotation.PostConstruct;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.Vector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -14,72 +18,84 @@ public class SftpFileMonitor {
     private static final Logger LOGGER = LoggerFactory.getLogger(SftpFileMonitor.class);
 
     private final SftpProperties sftpProperties;
+    private final DocxToPdfService docxToPdfService;
 
-    public SftpFileMonitor(SftpProperties sftpProperties) {
+    public SftpFileMonitor(SftpProperties sftpProperties, DocxToPdfService docxToPdfService) {
         this.sftpProperties = sftpProperties;
+        this.docxToPdfService = docxToPdfService;
     }
 
-    @PostConstruct
+    // Scheduled method to monitor the uploads directory
+    @Scheduled(fixedDelay = 20000) // Run every 20 seconds
     public void monitorUploadsDirectory() {
-        new Thread(() -> {
-            LOGGER.info("Initializing SFTP file monitoring");
-            Session session = null;
-            ChannelSftp channelSftp = null;
+        LOGGER.info("Polling SFTP directory for new files...");
+        Session session = null;
+        ChannelSftp channelSftp = null;
 
-            try {
-                // Create a new instance of JSch and configure the session
-                JSch jsch = new JSch();
-                session = jsch.getSession(sftpProperties.getUser(), sftpProperties.getHost(), sftpProperties.getPort());
-                session.setPassword(sftpProperties.getPassword());
+        try {
+            // Set up the SFTP session
+            JSch jsch = new JSch();
+            session = jsch.getSession(sftpProperties.getUser(), sftpProperties.getHost(), sftpProperties.getPort());
+            session.setPassword(sftpProperties.getPassword());
 
-                // Disable strict host key checking
-                // TODO: change to use a private key and not username and password
-                session.setConfig("StrictHostKeyChecking", "no");
-                session.connect();
+            session.setConfig("StrictHostKeyChecking", "no");
+            session.connect();
+            LOGGER.info("Connected to SFTP server");
 
-                LOGGER.info("Connected to SFTP server");
+            channelSftp = (ChannelSftp) session.openChannel("sftp");
+            channelSftp.connect();
 
-                // Open an SFTP channel and connect
-                channelSftp = (ChannelSftp) session.openChannel("sftp");
-                channelSftp.connect();
+            @SuppressWarnings("unchecked")
+            Vector<ChannelSftp.LsEntry> fileList = channelSftp.ls(sftpProperties.getUploadsDirectory());
 
-                LOGGER.info("SFTP channel opened");
-                LOGGER.info("Monitoring directory: " + sftpProperties.getUploadsDirectory());
+            for (ChannelSftp.LsEntry entry : fileList) {
+                String fileName = entry.getFilename();
 
-                // Poll the SFTP directory for files
-                while (true) {
-                    @SuppressWarnings("unchecked")
-                    Vector<ChannelSftp.LsEntry> fileList = channelSftp.ls(sftpProperties.getUploadsDirectory());
-
-                    // Process each file in the directory
-                    for (ChannelSftp.LsEntry entry : fileList) {
-                        String fileName = entry.getFilename();
-                        if (fileName.equals(".") || fileName.equals("..")) {
-                            continue;
-                        }
-
-                        // Check if the file is a supported type (docx)
-                        if (fileName.endsWith(".docx")) {
-                            LOGGER.info("Found supported file: " + fileName);
-                        } else {
-                            LOGGER.warn("Unsupported file type: " + fileName + ". The System only supports docx file types");
-                        }
-                    }
-
-                    // Poll every 20 seconds
-                    Thread.sleep(20000);
+                // Ignore system entries
+                if (fileName.equals(".") || fileName.equals("..")) {
+                    continue;
                 }
-            } catch (Exception e) {
-                LOGGER.error("Error monitoring SFTP directory: {}", e.getMessage());
-            } finally {
-                // Clean up and disconnect from the SFTP server
-                if (channelSftp != null && channelSftp.isConnected()) {
-                    channelSftp.disconnect();
-                }
-                if (session != null && session.isConnected()) {
-                    session.disconnect();
+
+                // Check if the file is a supported type
+                if (fileName.endsWith(".docx")) {
+                    LOGGER.info("Found supported file: " + fileName);
+
+                    // Download the file locally
+                    File localFile = downloadFile(channelSftp, fileName);
+
+                    // Trigger the transformation
+                    docxToPdfService.transformToPdf(localFile);
+
+                    // Delete the processed file from SFTP server
+                    channelSftp.rm(sftpProperties.getUploadsDirectory() + "/" + fileName);
+                    LOGGER.info("File processed and removed from SFTP server: " + fileName);
+                } else {
+                    LOGGER.warn("Unsupported file type: " + fileName);
                 }
             }
-        }).start();
+        } catch (Exception e) {
+            LOGGER.error("Error while monitoring SFTP directory: {}", e.getMessage());
+        } finally {
+            // Cleanup resources
+            if (channelSftp != null && channelSftp.isConnected()) {
+                channelSftp.disconnect();
+            }
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        }
+    }
+
+    private File downloadFile(ChannelSftp channelSftp, String fileName) throws SftpException {
+        String remoteFilePath = sftpProperties.getUploadsDirectory() + "/" + fileName;
+        File localFile = new File("src/main/resources/downloads/" + fileName); // Adjust path as needed
+
+        try (OutputStream outputStream = new FileOutputStream(localFile)) {
+            channelSftp.get(remoteFilePath, outputStream);
+            LOGGER.info("File downloaded locally: " + localFile.getAbsolutePath());
+        } catch (Exception e) {
+            LOGGER.error("Error downloading file: {}", e.getMessage());
+        }
+        return localFile;
     }
 }
