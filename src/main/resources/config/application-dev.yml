@@ -20,6 +20,14 @@ logging:
     org.hibernate.SQL: DEBUG
     com.converter.file: DEBUG
 
+sftp:
+  host: localhost
+  port: 22
+  user: user
+  password: password
+  uploads-directory: /upload
+  enabled: true
+
 spring:
   devtools:
     restart:
