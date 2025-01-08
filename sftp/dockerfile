@@ -1,0 +1,10 @@
+# Use the atmoz/sftp base image
+FROM atmoz/sftp:latest
+
+ENV SFTP_USERS=user:password:1001
+
+# Add user with username 'user', password 'password', and UID 1001
+# Specify the directory structure and permissions
+RUN mkdir -p /home/user/upload && \
+    chown -R 1001:1001 /home/user/upload && \
+    chmod 700 /home/user/upload
