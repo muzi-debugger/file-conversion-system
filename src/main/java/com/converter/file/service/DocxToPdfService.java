@@ -6,20 +6,26 @@ import com.lowagie.text.Document;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfWriter;
 import java.io.*;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.List;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DocxToPdfService {
 
+    private static final Logger log = LoggerFactory.getLogger(DocxToPdfService.class);
     private static final String DOWNLOAD_DIR = "src/main/resources/downloads/";
     private final FileRepository fileRepository;
+    private final SqsService sqsService;
 
-    public DocxToPdfService(FileRepository fileRepository) {
+    public DocxToPdfService(FileRepository fileRepository, SqsService sqsService) {
         this.fileRepository = fileRepository;
+        this.sqsService = sqsService;
     }
 
     public void transformToPdf(java.io.File docxFile) throws Exception {
@@ -50,10 +56,14 @@ public class DocxToPdfService {
             fileEntity.setCategory("document");
             fileRepository.save(fileEntity);
 
-            // Log success
-            System.out.println("PDF created successfully at: " + pdfFile.getPath());
+            log.info("PDF created successfully at: " + pdfFile.getPath());
+
+            // Read pdf content and send to SQS
+            byte[] pdfContent = Files.readAllBytes(pdfFile.toPath());
+            sqsService.SendToSqsQueue(fileEntity, pdfContent);
+            log.info("Successfully sent message to SQS: {}", pdfFile.getPath());
         } catch (Exception e) {
-            System.err.println("Error during DOCX to PDF transformation: " + e.getMessage());
+            log.error("Error during DOCX to PDF transformation: " + e.getMessage());
             throw e;
         }
     }
