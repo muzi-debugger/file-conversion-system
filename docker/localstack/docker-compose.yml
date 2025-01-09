@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  localstack:
+    image: localstack/localstack
+    container_name: localstack
+    ports:
+      - '4566:4566' # LocalStack Gateway
+      - '4576:4576' # SQS specific
+    environment:
+      - LOCALSTACK_SERVICES=s3,sqs # Enable S3 and SQS
+      - AWS_ACCESS_KEY_ID=testkey
+      - AWS_SECRET_ACCESS_KEY=testsecret
+      - AWS_DEFAULT_REGION=us-west-1
+      - DEBUG=1 # Enable debug logs
+    volumes:
+      - ./localstack-data:/var/lib/localstack # Persistent data
+      - /var/run/docker.sock:/var/run/docker.sock # Needed for some LocalStack features
