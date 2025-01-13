@@ -1,40 +1,52 @@
 import boto3
 import base64
 import json
+import logging
+from botocore.exceptions import ClientError
 
 # Initialize S3 client
-s3_client = boto3.client('s3', endpoint_url="http://localhost:4566")  # LocalStack endpoint
+s3_client = boto3.client('s3')
 
-# Lambda handler
+# Initialize logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 def lambda_handler(event, context):
-    bucket_name = "file-storage-bucket"
+    bucket_name = "muzi-file-storage-bucket"  
 
-    # Ensure the bucket exists
-    try:
-        s3_client.create_bucket(Bucket=bucket_name)
-        print(f"Bucket '{bucket_name}' created.")
-    except Exception as e:
-        print(f"Bucket may already exist or error occurred: {str(e)}")
-
-    for record in event['Records']:
-        # Parse SQS message
-        body = json.loads(record['body'])
-        file_name = body['fileName']
-        base64_content = body['base64EncodedContent']
-
-        # Decode the Base64 content
+    # Process each record in the event
+    for record in event.get('Records', []):
         try:
-            file_content = base64.b64decode(base64_content)
-        except Exception as decode_error:
-            print(f"Failed to decode Base64 content for file {file_name}: {decode_error}")
+            # Parse the body from the record
+            body = json.loads(record['body'])
+            file_name = body.get('fileName')
+            base64_content = body.get('base64EncodedContent')
+
+            # Validate fields
+            if not file_name or not base64_content:
+                logger.warning(f"Missing fileName or base64EncodedContent in message: {body}")
+                continue
+
+            # Decode Base64 content
+            try:
+                file_content = base64.b64decode(base64_content)
+            except Exception as decode_error:
+                logger.error(f"Failed to decode Base64 content for file '{file_name}': {decode_error}")
+                continue
+
+            # Upload to S3
+            try:
+                s3_client.put_object(Bucket=bucket_name, Key=file_name, Body=file_content)
+                logger.info(f"File '{file_name}' successfully uploaded to bucket '{bucket_name}'.")
+            except ClientError as e:
+                logger.error(f"Failed to upload file '{file_name}' to S3: {e}")
+                continue
+
+        except Exception as e:
+            logger.error(f"Error processing record: {e}")
             continue
 
-        # Upload the decoded content to S3
-        try:
-            s3_client.put_object(Bucket=bucket_name, Key=file_name, Body=file_content)
-            print(f"File '{file_name}' successfully uploaded to bucket '{bucket_name}'.")
-        except Exception as upload_error:
-            print(f"Failed to upload file {file_name} to S3: {upload_error}")
-            continue
-
-    return {"statusCode": 200, "body": "Processing complete"}
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"message": "Processing complete"})
+    }

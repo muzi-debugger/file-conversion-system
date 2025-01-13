@@ -7,10 +7,11 @@ services:
       - '4566:4566' # LocalStack Gateway
       - '4576:4576' # SQS specific
     environment:
-      - LOCALSTACK_SERVICES=s3,sqs # Enable S3 and SQS
+      - LOCALSTACK_SERVICES=s3,sqs,lambda,kms,logs # Enable S3 and SQS
       - AWS_ACCESS_KEY_ID=testkey
       - AWS_SECRET_ACCESS_KEY=testsecret
       - AWS_DEFAULT_REGION=us-west-1
+      - LAMBDA_EXECUTOR=docker
       - DEBUG=1 # Enable debug logs
     volumes:
       - ./localstack-data:/var/lib/localstack # Persistent data
